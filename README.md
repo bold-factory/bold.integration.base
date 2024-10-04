@@ -14,7 +14,7 @@ divided into two main workflows:
 
 ### 1. Data Fetching from ERP to Bold
 
-The integration periodically fetches data from the **ERPI** using a `BackgroundService` and processes the following
+The integration periodically fetches data from the **ERP** using a `BackgroundService` and processes the following
 collections:
 
 - **SKUs**
