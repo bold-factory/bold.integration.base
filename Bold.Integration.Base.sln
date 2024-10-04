@@ -1,0 +1,21 @@
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bold.Integration.Base", "src\Bold.Integration.Base.csproj", "{ABFAF102-AC34-477F-AF2E-3D2B220AC948}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{1A4A8A99-C2D6-4DE4-9889-FF749B0C92E7}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+		Dockerfile = Dockerfile
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{ABFAF102-AC34-477F-AF2E-3D2B220AC948}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ABFAF102-AC34-477F-AF2E-3D2B220AC948}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ABFAF102-AC34-477F-AF2E-3D2B220AC948}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ABFAF102-AC34-477F-AF2E-3D2B220AC948}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
