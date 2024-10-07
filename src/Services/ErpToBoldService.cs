@@ -13,8 +13,8 @@ public class ErpToBoldService(IServiceScopeFactory scopeFactory, ILogger<ErpToBo
             try
             {
                 using var scope = scopeFactory.CreateScope();
-                var itemsService = scope.ServiceProvider.GetRequiredService<SkusService>();
-                await itemsService.SyncErpToBold(stoppingToken);
+                var skusService = scope.ServiceProvider.GetRequiredService<SkusService>();
+                await skusService.SyncErpToBold(stoppingToken);
             }
             catch (Exception ex)
             {

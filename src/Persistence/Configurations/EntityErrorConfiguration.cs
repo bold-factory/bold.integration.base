@@ -13,5 +13,6 @@ public class EntityErrorConfiguration : IEntityTypeConfiguration<EntityError>
         builder.Property(x => x.Kind);
         builder.Property(x => x.Content);
         builder.Property(x => x.Error);
+        builder.Property(x => x.OccurredOn);
     }
 }

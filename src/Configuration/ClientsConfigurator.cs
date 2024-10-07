@@ -1,5 +1,6 @@
 ﻿using Bold.Integration.Base.Authentication;
 using Bold.Integration.Base.Clients;
+using Microsoft.Extensions.Options;
 using Polly;
 using Polly.Retry;
 
@@ -9,8 +10,6 @@ public static class ClientsConfigurator
 {
     public static IServiceCollection AddApiClients(this IServiceCollection services)
     {
-        var apiSettings = services.GetOptions<ApiSettings>();
-
         AsyncRetryPolicy<HttpResponseMessage> RetryPolicy(IServiceProvider sp)
         {
             var logger = sp.GetRequiredService<ILogger<Program>>();
@@ -27,25 +26,29 @@ public static class ClientsConfigurator
 
         services.AddHttpClient();
 
-        services.AddHttpClient(name: "bold", client =>
+        services.AddHttpClient(name: nameof(BoldClient), (sp, client) =>
                 {
-                    var baseUrl = apiSettings.Bold.BaseUrl;
-                    client.BaseAddress = new Uri(baseUrl);
+                    var apiSettings = sp.GetRequiredService<IOptions<ApiSettings>>().Value;
+                    client.BaseAddress = new Uri(apiSettings.Bold.BaseUrl);
                     client.Timeout = TimeSpan.FromSeconds(20);
-                }).AddHttpMessageHandler<BoldAuthHandler>()
+                })
+                .AddHttpMessageHandler<BoldAuthHandler>()
                 .AddPolicyHandler((sp, _) => RetryPolicy(sp));
 
-        services.AddScoped<BoldClient>(x =>
+
+        services.AddScoped(sp =>
         {
-            var baseUrl = apiSettings.Bold.BaseUrl;
-            var clientFactory = x.GetRequiredService<IHttpClientFactory>();
-            var client = clientFactory.CreateClient("bold");
-            var boldClient = new BoldClient(baseUrl: baseUrl, httpClient: client)
+            var clientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            var httpClient = clientFactory.CreateClient(nameof(BoldClient)); // Create named HttpClient for BoldClient
+            var apiSettings = sp.GetRequiredService<IOptions<ApiSettings>>().Value;
+
+            return new BoldClient(baseUrl: apiSettings.Bold.BaseUrl, httpClient: httpClient)
             {
                 ReadResponseAsString = false
             };
-            return boldClient;
         });
+        
+        services.AddScoped<ErpClient>();
 
         return services;
     }

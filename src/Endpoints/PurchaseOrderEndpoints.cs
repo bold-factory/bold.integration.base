@@ -1,6 +1,6 @@
-﻿using Bold.Integration.Base.Entities;
+﻿using Bold.Integration.Base.Clients;
+using Bold.Integration.Base.Entities;
 using Bold.Integration.Base.Events;
-using Bold.Integration.Base.Clients;
 
 namespace Bold.Integration.Base.Endpoints;
 
@@ -15,7 +15,7 @@ public class PurchaseOrderEndpoints : IEndpoint
                                            CancellationToken cancellationToken)
     {
         var payload = e.Payload;
-        var supplier = await boldClient.SuppliersGET2Async(supplierReference: payload.SupplierId, cancellationToken: cancellationToken);
+        var supplier = await boldClient.Planning_Suppliers_GetOneAsync(supplierReference: payload.SupplierId, cancellationToken: cancellationToken);
         //do something here with the order
     }
 }

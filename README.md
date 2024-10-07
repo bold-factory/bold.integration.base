@@ -39,18 +39,11 @@ You need to install the NSwag CLI by running:
 dotnet tool install --global NSwag.ConsoleCore
 ```
 
-You can download the latest swagger docs running:
+Then you need to generate the client by running:
 
 ```bash
-curl.exe -s "https://api.bold-factory.com/swagger/v1.json" -o "src/Clients"
+nswag run nswag.json
 ```
-
-Then you need to regenerate the client by running:
-
-```bash
-nswag openapi2csclient /input:src/Clients/v1.json /namespace:Bold.Integration.Base.Clients /classname:BoldClient /output:src/Clients/BoldClient.cs
-```
-
 
 ## Error Handling
 

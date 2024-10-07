@@ -2,7 +2,6 @@
 using Bold.Integration.Base.Entities;
 using Bold.Integration.Base.Observability;
 
-
 namespace Bold.Integration.Base.Services;
 
 public class SkusService(BoldClient boldClient,
@@ -16,85 +15,87 @@ public class SkusService(BoldClient boldClient,
         using var activity = Diagnostics.StartActivity("Syncing SKUs");
         var lastUpdateId = await syncStateService.GetLastProcessedIdAsync(kind: CollectionKind.Skus,
                                                                           cancellationToken: cancellationToken);
-        var skus = await erpClient.GetSkus(idChange: lastUpdateId, cancellationToken: cancellationToken);
-        foreach (var item in skus)
+        var items = await erpClient.GetSkus(idChange: lastUpdateId, cancellationToken: cancellationToken);
+        foreach (var sku in items)
         {
-            using var skuActivity = Diagnostics.StartActivity($"Syncing SKU {item.Code}");
-            skuActivity?.AddTags(item);
-            if (item.Active)
-            {
-                await CreateOrUpdateItem(erpSku: item, cancellationToken: cancellationToken);
-            }
-            else
-            {
-                await TryDeleteItem(erpSku: item, cancellationToken: cancellationToken);
-            }
-            await syncStateService.UpdateLastProcessedIdAsync(kind: CollectionKind.Skus,
-                                                              lastProcessedId: item.ChangeId,
-                                                              cancellationToken: cancellationToken);
-        }
-    }
-    private async Task CreateOrUpdateItem(ErpClient.Sku erpSku, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var boldSku = await boldClient.SkusGET3Async(skuReference: erpSku.Id.ToString(), cancellationToken: cancellationToken);
-            await boldClient.SkusPUTAsync(skuReference: erpSku.Id.ToString(), body: new UpdateSkuRequest
-            {
-                Name = erpSku.Name,
-                Code = erpSku.Code,
-                ProductReference = boldSku.ProductId,
-            }, cancellationToken: cancellationToken);
-        }
-        catch (ApiException exception) when (exception.StatusCode == 404)
-        {
+            using var skuActivity = Diagnostics.StartActivity($"Syncing SKU {sku.Code}");
+            skuActivity?.AddTags(sku);
             try
             {
-                var isRawMaterial = erpSku.SupplierId == 0;
-                await boldClient.SkusPOST2Async(body: new CreateSkuRequest
-                {
-                    ExternalReference = erpSku.Id.ToString(),
-                    Name = erpSku.Name,
-                    Code = erpSku.Code,
-                    Description = erpSku.Description,
-                    Values = [],
-                    ProductReference = null,
-                    ManageLots = !isRawMaterial,
-                    ReplenishmentMode = isRawMaterial ? ReplenishmentMode.Batched : ReplenishmentMode.Direct,
-                    ReplenishmentSource = isRawMaterial ? ReplenishmentSource.Purchase : ReplenishmentSource.Manufacture
-                }, cancellationToken: cancellationToken);
+                await SyncSku(sku: sku, cancellationToken: cancellationToken);
             }
             catch (Exception e)
             {
-                logger.LogError(exception: e, message: "Error al crear el artículo {itemReference}", args: erpSku.Code);
-                await errorLoggerService.RecordErrorAsync(kind: CollectionKind.Skus, entity: erpSku, error: e.ToString(),
+                logger.LogError(exception: e, message: "Error al procesar el artículo {itemReference}", sku.Code);
+                await errorLoggerService.RecordErrorAsync(kind: CollectionKind.Skus, entity: sku, error: e.ToString(),
                                                           cancellationToken: cancellationToken);
             }
-        }
-        catch (Exception e)
-        {
-            logger.LogError(exception: e, message: "Error al actualizar el artículo {itemReference}", args: erpSku.Code);
-            await errorLoggerService.RecordErrorAsync(kind: CollectionKind.Skus, entity: erpSku, error: e.ToString(),
-                                                      cancellationToken: cancellationToken);
+            finally
+            {
+                await syncStateService.UpdateLastProcessedIdAsync(kind: CollectionKind.Skus,
+                                                                  lastProcessedId: sku.ChangeId,
+                                                                  cancellationToken: cancellationToken);
+            }
         }
     }
-    private async Task TryDeleteItem(ErpClient.Sku erpSku, CancellationToken cancellationToken)
+    private async Task SyncSku(ErpClient.Sku sku, CancellationToken cancellationToken)
+    {
+        var boldSku = await GetSku(sku: sku, cancellationToken: cancellationToken);
+
+        if (sku.Active && boldSku is null)
+        {
+            await CreateSku(sku: sku, cancellationToken: cancellationToken);
+        }
+        else if (sku.Active && boldSku is not null)
+        {
+            await UpdateSku(sku: sku, productReference: boldSku.ProductId, cancellationToken: cancellationToken);
+        }
+        else if (!sku.Active && boldSku is not null)
+        {
+            await DeleteSku(sku: sku, cancellationToken: cancellationToken);
+        }
+    }
+    private async Task CreateSku(ErpClient.Sku sku, CancellationToken cancellationToken)
+    {
+        var isRawMaterial = sku.SupplierId == 0;
+
+        await boldClient.Items_SKUs_CreateAsync(body: new CreateSkuRequest(code: sku.Code,
+                                                                           description: sku.Description,
+                                                                           externalReference: sku.Id.ToString(),
+                                                                           manageLots: !isRawMaterial,
+                                                                           name: sku.Name,
+                                                                           productReference: null,
+                                                                           replenishmentMode: isRawMaterial
+                                                                               ? ReplenishmentMode.Batched
+                                                                               : ReplenishmentMode.Direct,
+                                                                           replenishmentSource: isRawMaterial
+                                                                               ? ReplenishmentSource.Purchase
+                                                                               : ReplenishmentSource.Manufacture,
+                                                                           values: []),
+                                                cancellationToken: cancellationToken);
+    }
+    private async Task UpdateSku(ErpClient.Sku sku, string? productReference, CancellationToken cancellationToken)
+    {
+        await boldClient.Items_SKUs_UpdateAsync(skuReference: sku.Id.ToString(),
+                                                body: new UpdateSkuRequest(code: sku.Code,
+                                                                           description: sku.Description,
+                                                                           name: sku.Name,
+                                                                           productReference: productReference),
+                                                cancellationToken: cancellationToken);
+    }
+    private async Task DeleteSku(ErpClient.Sku sku, CancellationToken cancellationToken)
+    {
+        await boldClient.Items_SKUs_DeleteAsync(skuReference: sku.Id.ToString(), cancellationToken: cancellationToken);
+    }
+    private async Task<SkuResponse?> GetSku(ErpClient.Sku sku, CancellationToken cancellationToken)
     {
         try
         {
-            await boldClient.SkusGET3Async(skuReference: erpSku.Id.ToString(), cancellationToken: cancellationToken);
-            await boldClient.SkusDELETEAsync(skuReference: erpSku.Id.ToString(), cancellationToken: cancellationToken);
+            return await boldClient.Items_SKUs_GetOneAsync(skuReference: sku.Id.ToString(), cancellationToken: cancellationToken);
         }
-        catch (ApiException exception) when (exception.StatusCode == 404)
+        catch (BoldApiException exception) when (exception.StatusCode == 404)
         {
-            logger.LogInformation(message: "Skipping deletion of sku {skuReference} because it does not exist in Bold",
-                                  args: erpSku.Code);
-        }
-        catch (Exception e)
-        {
-            logger.LogError(exception: e, message: "Error al eliminar el artículo {skuReference}", args: erpSku.Code);
-            await errorLoggerService.RecordErrorAsync(kind: CollectionKind.Skus, entity: erpSku, error: e.ToString(),
-                                                      cancellationToken: cancellationToken);
+            return null;
         }
     }
 }

@@ -6,4 +6,5 @@ public class EntityError
     public CollectionKind Kind { get; init; }
     public string Content { get; init; } = string.Empty;
     public string Error { get; init; } = string.Empty;
+    public DateTimeOffset OccurredOn { get; init; } = DateTimeOffset.UtcNow;
 }
